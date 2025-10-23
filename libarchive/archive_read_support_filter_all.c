@@ -43,12 +43,20 @@ archive_read_support_filter_all(struct archive *a)
 	archive_check_magic(a, ARCHIVE_READ_MAGIC,
 	    ARCHIVE_STATE_NEW, "archive_read_support_filter_all");
 
+#if !defined(__wasi__) || HAVE_LIBBZ2
 	/* Bzip falls back to "bunzip2" command-line */
 	archive_read_support_filter_bzip2(a);
+#endif
+
 	/* The decompress code doesn't use an outside library. */
 	archive_read_support_filter_compress(a);
+
+#if !defined(__wasi__) || HAVE_LIBZ
 	/* Gzip decompress falls back to "gzip -d" command-line. */
 	archive_read_support_filter_gzip(a);
+#endif
+
+#if !defined(__wasi__) || HAVE_LIBLZMA
 	/* Lzip falls back to "unlzip" command-line program. */
 	archive_read_support_filter_lzip(a);
 	/* The LZMA file format has a very weak signature, so it
@@ -58,20 +66,37 @@ archive_read_support_filter_all(struct archive *a)
 	archive_read_support_filter_lzma(a);
 	/* Xz falls back to "unxz" command-line program. */
 	archive_read_support_filter_xz(a);
+#endif
+
 	/* The decode code doesn't use an outside library. */
 	archive_read_support_filter_uu(a);
 	/* The decode code doesn't use an outside library. */
 	archive_read_support_filter_rpm(a);
+
+#if !defined(__wasi__)
 	/* The decode code always uses "lrzip -q -d" command-line. */
 	archive_read_support_filter_lrzip(a);
+#endif
+
+#if !defined(__wasi__) || HAVE_LIBLZO2
 	/* Lzop decompress falls back to "lzop -d" command-line. */
 	archive_read_support_filter_lzop(a);
+#endif
+
+#if !defined(__wasi__)
 	/* The decode code always uses "grzip -d" command-line. */
 	archive_read_support_filter_grzip(a);
+#endif
+
+#if !defined(__wasi__) || HAVE_LIBLZ4
 	/* Lz4 falls back to "lz4 -d" command-line program. */
 	archive_read_support_filter_lz4(a);
+#endif
+
+#if !defined(__wasi__) || HAVE_LIBZSTD
 	/* Zstd falls back to "zstd -d" command-line program. */
 	archive_read_support_filter_zstd(a);
+#endif
 
 	/* Note: We always return ARCHIVE_OK here, even if some of the
 	 * above return ARCHIVE_WARN.  The intent here is to enable

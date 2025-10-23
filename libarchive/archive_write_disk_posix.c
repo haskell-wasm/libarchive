@@ -641,7 +641,11 @@ _archive_write_disk_header(struct archive *_a, struct archive_entry *entry)
 	 * user edits their umask during the extraction for some
 	 * reason.
 	 */
+#if defined(__wasi__)
+	a->user_umask = 0;
+#else
 	umask(a->user_umask = umask(0));
+#endif
 
 	/* Figure out what we need to do for this entry. */
 	a->todo = TODO_MODE_BASE;
@@ -2004,7 +2008,11 @@ archive_write_disk_new(void)
 	a->archive.vtable = &archive_write_disk_vtable;
 	a->start_time = time(NULL);
 	/* Query and restore the umask. */
+#if defined(__wasi__)
+	a->user_umask = 0;
+#else
 	umask(a->user_umask = umask(0));
+#endif
 #ifdef HAVE_GETEUID
 	a->user_uid = geteuid();
 #endif /* HAVE_GETEUID */
@@ -3477,6 +3485,10 @@ create_dir(struct archive_write_disk *a, char *path)
 static int
 set_ownership(struct archive_write_disk *a)
 {
+#if defined(__wasi__)
+		return (ARCHIVE_OK);
+#endif
+
 #if !defined(__CYGWIN__) && !defined(__linux__)
 /*
  * On Linux, a process may have the CAP_CHOWN capability.

@@ -45,17 +45,31 @@ static const
 struct { const char *name; int (*setter)(struct archive *); } names[] =
 {
 	{ "b64encode",		archive_write_add_filter_b64encode },
+#if !defined(__wasi__) || HAVE_LIBBZ2
 	{ "bzip2",		archive_write_add_filter_bzip2 },
+#endif
 	{ "compress",		archive_write_add_filter_compress },
+#if !defined(__wasi__)
 	{ "grzip",		archive_write_add_filter_grzip },
+#endif
+#if !defined(__wasi__) || HAVE_LIBZ
 	{ "gzip",		archive_write_add_filter_gzip },
+#endif
+#if !defined(__wasi__)
 	{ "lrzip",		archive_write_add_filter_lrzip },
+#endif
+#if !defined(__wasi__) || HAVE_LIBLZ4
 	{ "lz4",		archive_write_add_filter_lz4 },
+#endif
+#if !defined(__wasi__) || HAVE_LIBLZMA
 	{ "lzip",		archive_write_add_filter_lzip },
 	{ "lzma",		archive_write_add_filter_lzma },
 	{ "lzop",		archive_write_add_filter_lzop },
+#endif
 	{ "uuencode",		archive_write_add_filter_uuencode },
+#if !defined(__wasi__) || HAVE_LIBLZMA
 	{ "xz",			archive_write_add_filter_xz },
+#endif
 	{ "zstd",		archive_write_add_filter_zstd },
 	{ NULL,			NULL }
 };

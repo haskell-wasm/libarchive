@@ -97,6 +97,365 @@
 #include "archive_private.h"
 #include "archive_read_disk_private.h"
 
+#if defined(__wasi__)
+
+#define ARCHIVE_READ_DISK_UNSUPPORTED_MSG \
+    "archive_read_disk is not supported on this platform"
+
+static int
+stub_archive_read_close(struct archive *_a)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY | ARCHIVE_STATE_FATAL, "archive_read_close");
+
+    if (a->archive.state != ARCHIVE_STATE_FATAL)
+        a->archive.state = ARCHIVE_STATE_CLOSED;
+
+    return ARCHIVE_OK;
+}
+
+static int
+stub_archive_read_free(struct archive *_a)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    if (_a == NULL)
+        return ARCHIVE_OK;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY | ARCHIVE_STATE_FATAL, "archive_read_free");
+
+    if (a->archive.state != ARCHIVE_STATE_CLOSED &&
+        a->archive.state != ARCHIVE_STATE_FATAL)
+        stub_archive_read_close(_a);
+
+    if (a->cleanup_gname != NULL && a->lookup_gname_data != NULL)
+        (a->cleanup_gname)(a->lookup_gname_data);
+    if (a->cleanup_uname != NULL && a->lookup_uname_data != NULL)
+        (a->cleanup_uname)(a->lookup_uname_data);
+    if (a->entry != NULL)
+        archive_entry_free(a->entry);
+
+    a->archive.magic = 0;
+    free(a);
+    return ARCHIVE_OK;
+}
+
+static int
+stub_archive_read_next_header(struct archive *_a, struct archive_entry **entry)
+{
+    (void)entry;
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FATAL;
+}
+
+static int
+stub_archive_read_next_header2(struct archive *_a, struct archive_entry *entry)
+{
+    (void)entry;
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FATAL;
+}
+
+static int
+stub_archive_read_data_block(struct archive *_a, const void **buff,
+    size_t *size, int64_t *offset)
+{
+    (void)buff;
+    (void)size;
+    (void)offset;
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FATAL;
+}
+
+static const struct archive_vtable archive_read_disk_stub_vtable = {
+    .archive_free = stub_archive_read_free,
+    .archive_close = stub_archive_read_close,
+    .archive_read_data_block = stub_archive_read_data_block,
+    .archive_read_next_header = stub_archive_read_next_header,
+    .archive_read_next_header2 = stub_archive_read_next_header2,
+};
+
+struct archive *
+archive_read_disk_new(void)
+{
+    struct archive_read_disk *a;
+
+    a = (struct archive_read_disk *)calloc(1, sizeof(*a));
+    if (a == NULL)
+        return NULL;
+
+    a->archive.magic = ARCHIVE_READ_DISK_MAGIC;
+    a->archive.state = ARCHIVE_STATE_NEW;
+    a->archive.vtable = &archive_read_disk_stub_vtable;
+    a->flags = 0;
+
+    a->entry = archive_entry_new2(&a->archive);
+    if (a->entry == NULL) {
+        free(a);
+        return NULL;
+    }
+
+    return &a->archive;
+}
+
+const char *
+archive_read_disk_gname(struct archive *_a, la_int64_t gid)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    if (ARCHIVE_OK != __archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+            ARCHIVE_STATE_ANY, "archive_read_disk_gname"))
+        return NULL;
+
+    if (a->lookup_gname == NULL)
+        return NULL;
+    return (a->lookup_gname)(a->lookup_gname_data, gid);
+}
+
+const char *
+archive_read_disk_uname(struct archive *_a, la_int64_t uid)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    if (ARCHIVE_OK != __archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+            ARCHIVE_STATE_ANY, "archive_read_disk_uname"))
+        return NULL;
+
+    if (a->lookup_uname == NULL)
+        return NULL;
+    return (a->lookup_uname)(a->lookup_uname_data, uid);
+}
+
+int
+archive_read_disk_set_gname_lookup(struct archive *_a,
+    void *private_data,
+    const char *(*lookup_gname)(void *, la_int64_t),
+    void (*cleanup_gname)(void *))
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_gname_lookup");
+
+    if (a->cleanup_gname != NULL && a->lookup_gname_data != NULL)
+        (a->cleanup_gname)(a->lookup_gname_data);
+
+    a->lookup_gname = lookup_gname;
+    a->cleanup_gname = cleanup_gname;
+    a->lookup_gname_data = private_data;
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_set_uname_lookup(struct archive *_a,
+    void *private_data,
+    const char *(*lookup_uname)(void *, la_int64_t),
+    void (*cleanup_uname)(void *))
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_uname_lookup");
+
+    if (a->cleanup_uname != NULL && a->lookup_uname_data != NULL)
+        (a->cleanup_uname)(a->lookup_uname_data);
+
+    a->lookup_uname = lookup_uname;
+    a->cleanup_uname = cleanup_uname;
+    a->lookup_uname_data = private_data;
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_set_standard_lookup(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_standard_lookup");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+static int
+archive_read_disk_set_symlink_mode(struct archive *_a, char mode)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_symlink_mode");
+
+    a->symlink_mode = mode;
+    a->follow_symlinks = (mode == 'L');
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_set_symlink_logical(struct archive *_a)
+{
+    return archive_read_disk_set_symlink_mode(_a, 'L');
+}
+
+int
+archive_read_disk_set_symlink_physical(struct archive *_a)
+{
+    return archive_read_disk_set_symlink_mode(_a, 'P');
+}
+
+int
+archive_read_disk_set_symlink_hybrid(struct archive *_a)
+{
+    return archive_read_disk_set_symlink_mode(_a, 'H');
+}
+
+int
+archive_read_disk_set_atime_restored(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_atime_restored");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_set_behavior(struct archive *_a, int flags)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_behavior");
+
+    a->flags = flags;
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_set_matching(struct archive *_a, struct archive *_matching,
+    void (*excluded_cb_func)(struct archive *, void *, struct archive_entry *),
+    void *client_data)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_set_matching");
+
+    a->matching = _matching;
+    a->excluded_cb_func = excluded_cb_func;
+    a->excluded_cb_data = client_data;
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_set_metadata_filter_callback(struct archive *_a,
+    int (*metadata_filter_func)(struct archive *, void *, struct archive_entry *),
+    void *client_data)
+{
+    struct archive_read_disk *a = (struct archive_read_disk *)_a;
+
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY,
+        "archive_read_disk_set_metadata_filter_callback");
+
+    a->metadata_filter_func = metadata_filter_func;
+    a->metadata_filter_data = client_data;
+    return ARCHIVE_OK;
+}
+
+int
+archive_read_disk_open(struct archive *_a, const char *pathname)
+{
+    (void)pathname;
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_NEW, "archive_read_disk_open");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_open_w(struct archive *_a, const wchar_t *pathname)
+{
+    (void)pathname;
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_NEW, "archive_read_disk_open_w");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_can_descend(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_can_descend");
+    return 0;
+}
+
+int
+archive_read_disk_descend(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_descend");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_current_filesystem(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY,
+        "archive_read_disk_current_filesystem");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_current_filesystem_is_synthetic(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY,
+        "archive_read_disk_current_filesystem_is_synthetic");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_current_filesystem_is_remote(struct archive *_a)
+{
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY,
+        "archive_read_disk_current_filesystem_is_remote");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+int
+archive_read_disk_entry_from_file(struct archive *_a,
+    struct archive_entry *entry, int fd, const struct stat *st)
+{
+    (void)entry;
+    (void)fd;
+    (void)st;
+    archive_check_magic(_a, ARCHIVE_READ_DISK_MAGIC,
+        ARCHIVE_STATE_ANY, "archive_read_disk_entry_from_file");
+    archive_set_error(_a, ARCHIVE_ERRNO_MISC,
+        ARCHIVE_READ_DISK_UNSUPPORTED_MSG);
+    return ARCHIVE_FAILED;
+}
+
+#else
+
 #ifndef HAVE_FCHDIR
 #error fchdir function required.
 #endif
@@ -2630,5 +2989,7 @@ tree_free(struct tree *t)
 	free(t->filesystem_table);
 	free(t);
 }
+
+#endif
 
 #endif

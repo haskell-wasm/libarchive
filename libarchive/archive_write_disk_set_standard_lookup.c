@@ -156,6 +156,7 @@ lookup_gid(void *private_data, const char *gname, int64_t gid)
 #  endif /* HAVE_GETGRNAM_R */
 #elif defined(_WIN32) && !defined(__CYGWIN__)
 	/* TODO: do a gname->gid lookup for Windows. */
+#elif defined(__wasi__)
 #else
 	#error No way to perform gid lookups on this platform
 #endif
@@ -225,6 +226,7 @@ lookup_uid(void *private_data, const char *uname, int64_t uid)
 #endif	/* HAVE_GETPWNAM_R */
 #elif defined(_WIN32) && !defined(__CYGWIN__)
 	/* TODO: do a uname->uid lookup for Windows. */
+#elif defined(__wasi__)
 #else
 	#error No way to look up uids on this platform
 #endif

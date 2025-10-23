@@ -230,6 +230,9 @@ lookup_uname_helper(struct name_cache *cache, id_t id)
 static const char *
 lookup_uname_helper(struct name_cache *cache, id_t id)
 {
+#if defined(__wasi__)
+	return NULL;
+#else
 	struct passwd	*result;
 	(void)cache; /* UNUSED */
 
@@ -239,6 +242,7 @@ lookup_uname_helper(struct name_cache *cache, id_t id)
 		return (NULL);
 
 	return strdup(result->pw_name);
+#endif
 }
 #endif
 
@@ -297,6 +301,9 @@ lookup_gname_helper(struct name_cache *cache, id_t id)
 static const char *
 lookup_gname_helper(struct name_cache *cache, id_t id)
 {
+#if defined(__wasi__)
+	return NULL;
+#else
 	struct group	*result;
 	(void)cache; /* UNUSED */
 
@@ -306,6 +313,7 @@ lookup_gname_helper(struct name_cache *cache, id_t id)
 		return (NULL);
 
 	return strdup(result->gr_name);
+#endif
 }
 #endif
 

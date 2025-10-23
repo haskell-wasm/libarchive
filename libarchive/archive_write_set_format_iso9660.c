@@ -2529,7 +2529,9 @@ get_tmfromtime(struct tm *tm, time_t *t)
 #if HAVE_LOCALTIME_S
 	localtime_s(tm, t);
 #elif HAVE_LOCALTIME_R
+#if !defined(__wasi__)
 	tzset();
+#endif
 	localtime_r(t, tm);
 #else
 	memcpy(tm, localtime(t), sizeof(*tm));
@@ -5184,6 +5186,11 @@ isoent_free_all(struct isoent *isoent)
 		}
 	}
 }
+
+#if defined(__wasi__)
+static la_int64_t getuid(void) { return 0; }
+static la_int64_t getgid(void) { return 0; }
+#endif
 
 static struct isoent *
 isoent_create_virtual_dir(struct archive_write *a, struct iso9660 *iso9660, const char *pathname)
@@ -8169,4 +8176,3 @@ zisofs_free(struct archive_write *a)
 }
 
 #endif /* HAVE_ZLIB_H */
-

@@ -57,6 +57,10 @@ archive_write_set_compression_program(struct archive *a, const char *cmd)
 }
 #endif
 
+#if defined(__wasi__)
+
+#else
+
 struct archive_write_program_data {
 #if defined(_WIN32) && !defined(__CYGWIN__)
 	HANDLE		 child;
@@ -387,3 +391,4 @@ cleanup:
 	return ret;
 }
 
+#endif

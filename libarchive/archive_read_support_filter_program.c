@@ -94,6 +94,10 @@ struct program_bidder {
 	int inhibit;
 };
 
+#if defined(__wasi__)
+
+#else
+
 static int	program_bidder_bid(struct archive_read_filter_bidder *,
 		    struct archive_read_filter *upstream);
 static int	program_bidder_init(struct archive_read_filter *);
@@ -492,3 +496,5 @@ program_filter_close(struct archive_read_filter *self)
 
 	return (e);
 }
+
+#endif

@@ -203,8 +203,12 @@ main(int argc, char **argv)
 #endif
 	possible_help_request = 0;
 
+#if defined(__wasi__)
+	bsdtar->user_uid = 0;
+#else
 	/* Look up uid of current user for future reference */
 	bsdtar->user_uid = geteuid();
+#endif
 
 	/* Default: open tape drive. */
 	bsdtar->filename = getenv("TAPE");

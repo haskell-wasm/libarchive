@@ -144,6 +144,9 @@ cset_add_filter_program(struct creation_set *cset, const char *filter)
 int
 cset_read_support_filter_program(struct creation_set *cset, struct archive *a)
 {
+#if defined(__wasi__)
+	return 0;
+#else
 	int cnt = 0, i;
 
 	for (i = 0; i < cset->filter_count; i++) {
@@ -154,6 +157,7 @@ cset_read_support_filter_program(struct creation_set *cset, struct archive *a)
 		}
 	}
 	return (cnt);
+#endif
 }
 
 int
@@ -164,8 +168,12 @@ cset_write_add_filters(struct creation_set *cset, struct archive *a,
 
 	for (i = 0; i < cset->filter_count; i++) {
 		if (cset->filters[i].program)
+#if defined(__wasi__)
+			continue;
+#else
 			r = archive_write_add_filter_program(a,
 				cset->filters[i].filter_name);
+#endif
 		else
 			r = archive_write_add_filter_by_name(a,
 				cset->filters[i].filter_name);
